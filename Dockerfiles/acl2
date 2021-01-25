@@ -1,0 +1,55 @@
+FROM rubengamboa/ccl:1.11.5
+
+ARG ACL2=acl2
+ARG VERSION=8.3
+# ARG BOOK_VERSION=all
+ARG BOOK_VERSION=basic
+
+LABEL maintainer="Ruben Gamboa <ruben@uwyo.edu>"
+
+USER root
+
+WORKDIR /usr/local/src/
+
+RUN set -x \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && apt-get install -y gcc \
+    && apt-get install -y wget \
+    && wget http://www.acl2u.org/downloads/${ACL2}-${VERSION}-${BOOK_VERSION}.tgz \
+    && tar xzf ${ACL2}-${VERSION}-${BOOK_VERSION}.tgz \
+    && cp ${ACL2}-${VERSION}/saved_${ACL2} /usr/local/bin/${ACL2} \
+    && rm ${ACL2}-${VERSION}-${BOOK_VERSION}.tgz
+
+# These are needed if you want to run cert.pl:
+#
+# apt-get install -y libfindbin-libs-perl
+# apt-get install -y build-essential
+#
+# To compile ACL2:
+#
+# make all LISP=ccl
+# cp saved_acl2 /usr/local/bin/acl2
+# cd books
+# make all USE_QUICKLISP=1 ACL2=acl2
+
+RUN addgroup --gid 1024 acl2group
+RUN adduser --disabled-password --gecos "" --force-badname --ingroup acl2group acl2user
+
+RUN mkdir /Project
+RUN chown acl2user /Project
+RUN chgrp acl2group /Project
+
+USER acl2user
+
+WORKDIR /Project
+
+ENTRYPOINT ["acl2"]
+
+# Run like this:
+#
+# docker run -it -v "${PROJECT_DIR}:/Project" rubengamboa/acl2:latest
+#
+# where ${PROJECT_DIR} points to the directory in YOUR machine 
+# that has the ACL2 files you want to work with
+

@@ -1,0 +1,27 @@
+ARG ROOT_CONTAINER=jupyter/minimal-notebook
+
+ARG BASE_CONTAINER=$ROOT_CONTAINER
+FROM $BASE_CONTAINER
+
+LABEL maintainer="Ruben Gamboa <ruben@uwyo.edu>"
+
+ENV CCL_DEFAULT_DIRECTORY=/usr/local/src/ccl
+
+USER root
+
+WORKDIR /usr/local/src/
+
+RUN set -x \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && apt-get install wget \
+    && wget "https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz" \
+    && tar xzf ccl-1.11.5-linuxx86.tar.gz \
+    && cp ccl/scripts/ccl64 /usr/local/bin/ccl \
+    && rm ccl-1.11.5-linuxx86.tar.gz
+
+USER $NB_UID
+
+WORKDIR /
+
+ENTRYPOINT ["ccl"]

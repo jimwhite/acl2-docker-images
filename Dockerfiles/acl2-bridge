@@ -1,0 +1,34 @@
+FROM rubengamboa/acl2:latest-basic
+
+LABEL maintainer="Ruben Gamboa <ruben@uwyo.edu>"
+
+WORKDIR /usr/local/src/
+
+# These are needed if you want to run cert.pl:
+#
+# apt-get install -y libfindbin-libs-perl
+# apt-get install -y build-essential
+#
+# To compile ACL2:
+#
+# make all LISP=ccl
+# cp saved_acl2 /usr/local/bin/acl2
+# cd books
+# make all USE_QUICKLISP=1 ACL2=acl2
+
+RUN chown acl2user /Project
+RUN chgrp acl2group /Project
+
+USER acl2user
+ENV HOME=/home/acl2user
+COPY acl2-init.lsp /home/acl2user/acl2-init.lsp
+
+WORKDIR /Project
+
+ENTRYPOINT ["acl2"]
+
+# Run like this:
+#
+# docker run -it -p 55433:55433 rubengamboa/acl2-bridge:latest-basic  
+#
+

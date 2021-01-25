@@ -1,0 +1,76 @@
+ARG BASE_CONTAINER=jupyter/minimal-notebook
+
+FROM $BASE_CONTAINER
+
+LABEL maintainer="Ruben Gamboa <ruben@uwyo.edu>"
+
+ENV CCL_DEFAULT_DIRECTORY=/usr/local/src/ccl
+
+ARG ACL2=acl2
+ARG VERSION=8.3
+# ARG BOOK_VERSION=all
+ARG BOOK_VERSION=basic
+
+USER root
+
+WORKDIR /usr/local/src/
+
+# CCL
+RUN set -x \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && apt-get install wget \
+    && wget "https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz" \
+    && tar xzf ccl-1.11.5-linuxx86.tar.gz \
+    && cp ccl/scripts/ccl64 /usr/local/bin/ccl \
+    && rm ccl-1.11.5-linuxx86.tar.gz
+
+# ACL2
+RUN set -x \
+    && apt-get update -y \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && apt-get install -y gcc \
+    && apt-get install -y wget \
+    && wget http://www.acl2u.org/downloads/${ACL2}-${VERSION}-${BOOK_VERSION}.tgz \
+    && tar xzf ${ACL2}-${VERSION}-${BOOK_VERSION}.tgz \
+    && cp ${ACL2}-${VERSION}/saved_${ACL2} /usr/local/bin/${ACL2} \
+    && rm ${ACL2}-${VERSION}-${BOOK_VERSION}.tgz
+
+RUN mkdir /Project
+RUN chown $NB_USER /Project
+RUN chgrp $NB_GID /Project
+
+# Python environment for Jupyter
+
+USER $NB_USER
+RUN pip install acl2_jupyter
+
+USER root
+
+RUN mkdir /opt/conda/share/jupyter/kernels/acl2
+COPY kernel.json /opt/conda/share/jupyter/kernels/acl2/
+RUN chown -R $NB_USER /opt/conda/share/jupyter/kernels/acl2
+RUN sed -i.bak -e "s/^# c.NotebookApp.password = ''/c.NotebookApp.password = 'argon2:\$argon2id\$v=19\$m=10240,t=10,p=8$\iljPsA90GQ+dqK4ultWg\\/A\$BAly7wtZlPrFiunoiSuXvw'/" /home/jovyan/.jupyter/jupyter_notebook_config.py
+
+# Startup ACL2 Bridge
+
+COPY acl2-jupyter.sh /usr/local/bin/acl2-jupyter.sh
+RUN chmod 755 /usr/local/bin/acl2-jupyter.sh
+
+COPY acl2-init.lsp /home/$NB_USER
+RUN chown $NB_USER /home/$NB_USER/acl2-init.lsp
+COPY start-bridge.lisp /home/$NB_USER
+RUN chown $NB_USER /home/$NB_USER/start-bridge.lisp
+
+USER $NB_USER
+ENV HOME=/home/$NB_USER
+WORKDIR /home/$NB_USER
+
+RUN mkdir /home/$NB_USER/programming-tutorial
+COPY acl2-notebooks/programming-tutorial/* /home/$NB_USER/programming-tutorial/
+
+ENTRYPOINT ["bash", "-c", "/usr/local/bin/acl2-jupyter.sh"]
+
+
+
+
