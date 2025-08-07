@@ -1,3 +1,6 @@
+# docker buildx  build --tag ccl --file ccl .
+# docker run -it --rm --name ccl ccl
+
 ARG ROOT_CONTAINER=jupyter/minimal-notebook
 
 ARG BASE_CONTAINER=$ROOT_CONTAINER
@@ -13,15 +16,15 @@ WORKDIR /usr/local/src/
 
 RUN set -x \
     && apt-get update -y \
-    && apt-get install -y --no-install-recommends wget ca-certificates \
-    && apt-get install wget \
-    && wget "https://github.com/Clozure/ccl/releases/download/v1.11.5/ccl-1.11.5-linuxx86.tar.gz" \
-    && tar xzf ccl-1.11.5-linuxx86.tar.gz \
+    && apt-get install -y --no-install-recommends wget ca-certificates rlwrap \
+    && apt-get install wget rlwrap \
+    && wget "https://github.com/Clozure/ccl/releases/download/v1.13/ccl-1.13-linuxx86.tar.gz" \
+    && tar xzf ccl-1.13-linuxx86.tar.gz \
     && cp ccl/scripts/ccl64 /usr/local/bin/ccl \
-    && rm ccl-1.11.5-linuxx86.tar.gz
+    && rm ccl-1.13-linuxx86.tar.gz
 
 USER $NB_UID
 
 WORKDIR /
 
-ENTRYPOINT ["ccl"]
+ENTRYPOINT ["rlwrap", "ccl"]
