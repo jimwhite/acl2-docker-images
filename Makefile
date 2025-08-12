@@ -9,20 +9,26 @@ DOCKERHUB_IMAGE_NAME ?= jimwhite/$(IMAGE_NAME)
 GHCR_IMAGE_NAME ?= ghcr.io/jimwhite/$(IMAGE_NAME)
 DOCKERFILE ?= Dockerfile
 PLATFORM ?= linux/amd64,linux/arm64
-ACL2_CERT_JOBS ?= 4
+BUILD_CACHE ?=
+# Some books like acl2s and centaur will sometimes fail certification when using multiple jobs.
+ACL2_CERT_JOBS ?= 1
+# ACL2_CERTIFY_TARGETS="basic"
+# The ACL2 Bridge and such for Jupyter need everything.
+# ACL2_CERTIFY_TARGETS ?= regression acl2s centaur/bridge
+ACL2_CERTIFY_TARGETS ?= all acl2s centaur/bridge
 ACL2_CERTIFY_OPTS ?= "-j $(ACL2_CERT_JOBS)"
 
 build-multiplatform:
-	docker buildx build --platform=$(PLATFORM) -t $(DOCKERHUB_IMAGE_NAME):$(IMAGE_VERSION) . \
-		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) -f $(DOCKERFILE) --push
+	docker buildx build --platform=$(PLATFORM) $(BUILD_CACHE) -t $(DOCKERHUB_IMAGE_NAME):$(IMAGE_VERSION) context \
+		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) --build-arg "ACL2_CERTIFY_TARGETS=$(ACL2_CERTIFY_TARGETS)" -f $(DOCKERFILE) --push
 
 build-multiplatform-ghcr:
-	docker buildx build --platform=$(PLATFORM) -t $(GHCR_IMAGE_NAME):$(IMAGE_VERSION) . \
-		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) -f $(DOCKERFILE) --push
+	docker buildx build --platform=$(PLATFORM) $(BUILD_CACHE) -t $(GHCR_IMAGE_NAME):$(IMAGE_VERSION) context \
+		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) --build-arg "ACL2_CERTIFY_TARGETS=$(ACL2_CERTIFY_TARGETS)" -f $(DOCKERFILE) --push
 
 build:
-	docker build . -t $(IMAGE_NAME):$(IMAGE_VERSION) \
-		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) -f $(DOCKERFILE)
+	docker build context $(BUILD_CACHE) -t $(IMAGE_NAME):$(IMAGE_VERSION) \
+		--build-arg ACL2_COMMIT=$(ACL2_COMMIT) --build-arg ACL2_CERTIFY_OPTS=$(ACL2_CERTIFY_OPTS) --build-arg "ACL2_CERTIFY_TARGETS=$(ACL2_CERTIFY_TARGETS)" -f $(DOCKERFILE)
 
 push:
 	docker image tag $(IMAGE_NAME):$(IMAGE_VERSION) $(DOCKERHUB_IMAGE_NAME):$(IMAGE_VERSION)
