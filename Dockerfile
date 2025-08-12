@@ -85,11 +85,10 @@ RUN unzip -qq /tmp/acl2.zip -d /tmp/acl2_extract \
     && mv -T /tmp/acl2_extract/$(ls /tmp/acl2_extract) /tmp/acl2 \
     && mv -T /tmp/acl2 ${ACL2_HOME} \
     && cd ${ACL2_HOME} \
-    && make LISP="sbcl" $ACL2_BUILD_OPTS
-
-RUN cd ${ACL2_HOME}/books && retry -t 5 make ACL2=${ACL2_HOME}/saved_acl2 ${ACL2_CERTIFY_OPTS} ${ACL2_CERTIFY_TARGETS}
-
-RUN chmod go+rx /home \
+    && make LISP="sbcl" $ACL2_BUILD_OPTS \
+    && cd ${ACL2_HOME}/books \
+    && make ACL2=${ACL2_HOME}/saved_acl2 ${ACL2_CERTIFY_OPTS} ${ACL2_CERTIFY_TARGETS} \
+    && chmod go+rx /home \
     && chmod -R g+rwx ${ACL2_HOME} \
     && chmod g+s ${ACL2_HOME} \
     && chown -R ${USER}:acl2 ${ACL2_HOME} \
@@ -99,7 +98,6 @@ RUN chmod go+rx /home \
 # This guards against future inaccessibility and speeds up Docker rebuilds
 # && rm /tmp/acl2.zip \
 # && rmdir /tmp/acl2_extract \
-
 
 # # Needed for books/oslib/tests/copy to certify
 RUN touch ${ACL2_HOME}/../foo && chmod a-w ${ACL2_HOME}/../foo && chown ${USER}:acl2 ${ACL2_HOME}/../foo
