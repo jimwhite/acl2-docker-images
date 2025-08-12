@@ -1,10 +1,18 @@
 FROM quay.io/jupyter/pyspark-notebook:latest
 LABEL org.opencontainers.image.source="https://github.com/jimwhite/acl2-docker"
 
+ARG USER=jovyan
+
 USER root
 
 # This will have RW permission for the ACL2 directory.
-RUN groupadd acl2 && usermod -aG acl2 root
+RUN echo 'jovyan ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers && \
+    adduser jovyan sudo && \
+    groupadd acl2 && \
+    usermod -aG acl2 ${USER} && \
+    mkdir /opt/acl2 && \
+    chown -R ${USER}:acl2 /opt/acl2
+    # && chmod -R g+rx /opt/acl2
 
 # Based on https://github.com/wshito/roswell-base
 
@@ -56,64 +64,61 @@ ARG ACL2_CERTIFY_OPTS="-j 4"
 ARG ACL2_CERTIFY_TARGETS="basic"
 ENV CERT_PL_RM_OUTFILES="1"
 
-RUN wget "https://api.github.com/repos/acl2/acl2/zipball/${ACL2_COMMIT}" -O /tmp/acl2.zip -q \
-    && unzip -qq /tmp/acl2.zip -d /root/acl2_extract \
-    && rm /tmp/acl2.zip \
-    && mv /root/acl2_extract/$(ls /root/acl2_extract) /root/acl2 \
-    && rmdir /root/acl2_extract \
-    && cd /root/acl2 \
-    && make LISP="sbcl" $ACL2_BUILD_OPTS \
-    && cd books \
-    && make $ACL2_CERTIFY_TARGETS ACL2=/root/acl2/saved_acl2 $ACL2_CERTIFY_OPTS \
-    && chmod go+rx /root \
-    && chown -R :acl2 /root/acl2 \
-    && chmod -R g+rwx /root/acl2 \
-    && chmod g+s /root/acl2 \
-    && find /root/acl2 -type d -print0 | xargs -0 chmod g+s
-
-# Needed for books/oslib/tests/copy to certify
-RUN touch /root/foo && chmod a-w /root/foo
-
-RUN mkdir -p /opt/acl2/bin \
-    && ln -s /root/acl2/saved_acl2 /opt/acl2/bin/acl2 \
-    && ln -s /root/acl2/books/build/cert.pl /opt/acl2/bin/cert.pl \
-    && ln -s /root/acl2/books/build/clean.pl /opt/acl2/bin/clean.pl \
-    && ln -s /root/acl2/books/build/critpath.pl /opt/acl2/bin/critpath.pl
-
-ENV PATH="/opt/acl2/bin:${PATH}"
-ENV ACL2_SYSTEM_BOOKS="/root/acl2/books"
-ENV ACL2="/root/acl2/saved_acl2"
-
-# Add jovyan to acl2 group and ensure access to ACL2
-RUN usermod -aG acl2 jovyan && \
-    chown -R :acl2 /opt/acl2 && \
-    chmod -R g+rx /opt/acl2
+ENV ACL2_HOME=/home/acl2
 
 # Setup ACL2 Jupyter kernel
 RUN mkdir -p /opt/conda/share/jupyter/kernels/acl2
 COPY context/kernel.json /opt/conda/share/jupyter/kernels/acl2/
-RUN chown -R jovyan:users /opt/conda/share/jupyter/kernels/acl2
+RUN chown -R ${USER}:acl2 /opt/conda/share/jupyter/kernels/acl2
 
 # Setup ACL2 Jupyter bridge scripts
 COPY context/acl2-jupyter.sh /usr/local/bin/acl2-jupyter.sh
 RUN chmod 755 /usr/local/bin/acl2-jupyter.sh
 
-COPY context/acl2-init.lsp /home/jovyan/
-COPY context/start-bridge.lisp /home/jovyan/
-RUN chown jovyan:users /home/jovyan/acl2-init.lsp /home/jovyan/start-bridge.lisp
+RUN wget "https://api.github.com/repos/acl2/acl2/zipball/${ACL2_COMMIT}" -O /tmp/acl2.zip -q
 
-# Switch to jovyan for Python/Jupyter setup
-USER jovyan
+RUN unzip -qq /tmp/acl2.zip -d /tmp/acl2_extract \
+    && mv -T /tmp/acl2_extract/$(ls /tmp/acl2_extract) /tmp/acl2 \
+    && mv -T /tmp/acl2 ${ACL2_HOME} \
+    && rm /tmp/acl2.zip \
+    && rmdir /tmp/acl2_extract \
+    && cd ${ACL2_HOME} \
+    && make LISP="sbcl" $ACL2_BUILD_OPTS \
+    && cd books \
+    && make $ACL2_CERTIFY_TARGETS ACL2=${ACL2_HOME}/saved_acl2 $ACL2_CERTIFY_OPTS \
+    && chmod go+rx /home \
+    && chmod -R g+rwx ${ACL2_HOME} \
+    && chmod g+s ${ACL2_HOME} \
+    && chown -R ${USER}:acl2 ${ACL2_HOME} \
+    && find ${ACL2_HOME} -type d -print0 | xargs -0 chmod g+s
 
-# Install ACL2 Jupyter kernel
-RUN pip install acl2_jupyter
 
-# Setup tutorial notebooks (if they exist)
-RUN mkdir -p /home/jovyan/programming-tutorial
-COPY context/acl2-notebooks/programming-tutorial/* /home/jovyan/programming-tutorial/
+# # Needed for books/oslib/tests/copy to certify
+RUN touch ${ACL2_HOME}/../foo && chmod a-w ${ACL2_HOME}/../foo && chown ${USER}:acl2 ${ACL2_HOME}/../foo
 
-ENV HOME=/home/jovyan
-WORKDIR /home/jovyan
+RUN mkdir -p /opt/acl2/bin \
+    && ln -s ${ACL2_HOME}/saved_acl2 /opt/acl2/bin/acl2 \
+    && ln -s ${ACL2_HOME}/books/build/cert.pl /opt/acl2/bin/cert.pl \
+    && ln -s ${ACL2_HOME}/books/build/clean.pl /opt/acl2/bin/clean.pl \
+    && ln -s ${ACL2_HOME}/books/build/critpath.pl /opt/acl2/bin/critpath.pl
+
+USER ${USER}
+
+ENV PATH="/opt/acl2/bin:${PATH}"
+ENV ACL2_SYSTEM_BOOKS="${ACL2_HOME}/books"
+ENV ACL2="/opt/acl2/saved_acl2"
+
+COPY context/acl2-init.lsp context/start-bridge.lisp /home/${USER}
+
+# # Install ACL2 Jupyter kernel
+# RUN pip install acl2_jupyter
+
+# # Setup tutorial notebooks (if they exist)
+RUN mkdir -p /home/${USER}/programming-tutorial
+COPY context/acl2-notebooks/programming-tutorial/* /home/${USER}/programming-tutorial/
+
+ENV HOME=/home/${USER}
+WORKDIR /home/${USER}
 
 # Use the ACL2 Jupyter bridge as entrypoint
 ENTRYPOINT ["bash", "-c", "/usr/local/bin/acl2-jupyter.sh"]
