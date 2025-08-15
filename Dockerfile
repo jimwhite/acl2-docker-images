@@ -1,6 +1,9 @@
 FROM quay.io/jupyter/pyspark-notebook:latest
 LABEL org.opencontainers.image.source="https://github.com/jimwhite/acl2-docker"
 
+ARG SBCL_VERSION=2.5.7
+ARG SBCL_SHA256=c4fafeb795699d5bcff9085091acc762dcf5e55f85235625f3d7aef12c89d1d3
+
 ARG USER=jovyan
 ENV HOME=/home/${USER}
 
@@ -46,8 +49,8 @@ RUN apt-get update && \
 
 RUN mkdir /root/sbcl \
     && cd /root/sbcl \
-    && wget "http://prdownloads.sourceforge.net/sbcl/sbcl-2.5.3-source.tar.bz2?download" -O sbcl.tar.bz2 -q \
-    && echo "8a1e76e75bb73eaec2df1ee0541aab646caa1042c71e256aaa67f7aff3ab16d5  sbcl.tar.bz2" > sbcl.tar.bz2.sha256 \
+    && wget "http://prdownloads.sourceforge.net/sbcl/sbcl-${SBCL_VERSION}-source.tar.bz2?download" -O sbcl.tar.bz2 -q \
+    && echo "${SBCL_SHA256} sbcl.tar.bz2" > sbcl.tar.bz2.sha256 \
     && sha256sum -c sbcl.tar.bz2.sha256 \
     && rm sbcl.tar.bz2.sha256 \
     && tar -xjf sbcl.tar.bz2 \
